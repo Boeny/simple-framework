@@ -14,6 +14,7 @@ App.prototype = {
 	types: ['file','module','controller','action'],
 	path_aliases: ['root','modules','controllers','actions'],
 	
+	// adds overwritten site main config and params of its components
 	mergeSiteConfig: function(site_config){
 		if (site_config.CONFIG_MAIN){
 			this.config = obj_deep_copy(this.config, require(site_config.CONFIG_MAIN));
@@ -22,6 +23,7 @@ App.prototype = {
 		obj_copy(this, site_config);
 	},
 	
+	// sets components from config/main -> components
 	setComponents(){
 		__server.msg('components loading:');
 		
