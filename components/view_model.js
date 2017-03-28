@@ -1,31 +1,24 @@
 var h;
 
-module.exports = function(__app){
-	this.app = app;
-	h = require(app.HTML);
+module.exports = function(params){
+	obj_copy(this, params);
+	h = require(this.app.HTML);
 	
-	this.Vue = require(app.VUE);
+	this.Vue = require(this.app.VUE);
 	__server.msg(' -vue loaded');
 	
-	this.renderer = require(app.VUE_RENDERER).createRenderer();
+	this.renderer = require(this.app.VUE_RENDERER).createRenderer();
 	__server.msg(' -vue-renderer loaded');
 };
+
 module.exports.prototype = {
-	layout: '',
-	lang: '',
-	head: '',
-	title: '',
-	content: '',
-	html_pattern: '',
-	html_part: '',
-	
 	setOutput: function(o){
 		this.output = o;
 	},
 	
-	create: function(template, params){
+	render: function(view, params){
 		var app = new this.Vue({
-			template: template,
+			template: this.getView(view),
 			data: params
 		});
 		
@@ -38,14 +31,15 @@ module.exports.prototype = {
 				this.content = html;
 				
 				this.setLayout(() => {
-					this.end(this.getView('main', 'LAYOUT_DIR'));
+					this.end(this.getView('main', this.layouts_dir));
 				});
 			}
 		);
 	},
 	
 	getView: function(view, dir_alias){
-		view = this.read(this[dir_alias || 'VIEWS_DIR'] + '/' + view + this.config.viewExt);
+		view = this.read(this.app[dir_alias || this.default_views_dir] + '/' + view + this.config.viewExt);
+		
 		var parts = view.match(this.html_pattern);
 		if (parts){
 			for (var i in parts){

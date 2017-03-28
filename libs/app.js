@@ -1,12 +1,18 @@
-var config = {};
 // file system object
 var fs = require('fs');
-var setPaths = require('./set_paths');
+var setPaths, config;
 
-var App = function(site_config, root){
+var App = function(site_config, site_root){
+	// all paths are in "this" object now
 	obj_copy(this, config);
-	this.config = require(this.CONFIG_MAIN);
-	this.mergeSiteConfig(setPaths(site_config, root));
+	
+	// this.config is object with params and components
+	this.config = this.require(this.CONFIG_MAIN);
+	
+	// if site_config contains CONFIG_MAIN, it'll be available in this.site_config object
+	this.mergeSiteConfig(setPaths(site_config, site_root));
+	
+	// create components, overwritten by site components
 	this.setComponents();
 };
 
@@ -14,13 +20,30 @@ App.prototype = {
 	types: ['file','module','controller','action'],
 	path_aliases: ['root','modules','controllers','actions'],
 	
+	require: function(path, site){
+		return require((site ? this.SITE_ROOT_DIR : this.ROOT_DIR) + path);
+	},
+	
 	// adds overwritten site main config and params of its components
-	mergeSiteConfig: function(site_config){
-		if (site_config.CONFIG_MAIN){
-			this.config = obj_deep_copy(this.config, require(site_config.CONFIG_MAIN));
-			delete site_config.CONFIG_MAIN;
+	mergeSiteConfig: function(__site_config){
+		// avoid to overwrite the own components dir
+		var comp_dir = __site_config.COMPONENTS_DIR;
+		if (comp_dir) delete __site_config.COMPONENTS_DIR;
+		
+		// add other site paths
+		obj_copy(this, __site_config);
+		
+		if (__site_config.CONFIG_MAIN)
+		{
+			// site's params and components
+			this.site_config = this.require(__site_config.CONFIG_MAIN, true);// site root
+			
+			// overwrite own params and components
+			this.config = obj_deep_copy(this.config, this.site_config);
+			
+			// save the site's components dir
+			this.site_config.COMPONENTS_DIR = comp_dir || this.COMPONENTS_DIR;
 		}
-		obj_copy(this, site_config);
 	},
 	
 	// sets components from config/main -> components
@@ -28,17 +51,20 @@ App.prototype = {
 		__server.msg('components loading:');
 		
 		var comps = this.config.components;
-		var comp;
+		var comp, site_module, this_module;
 		
 		for (var alias in comps){
 			comp = comps[alias];
 			
-			if (comp.module){
-				var m = require(this.COMPONENTS_DIR +'/'+ comp.module);
+			if (comp.module)
+			{
+				site_module = this.checkSiteCompModule(alias);
+				this_module = this.require(this.checkSiteCompDir(site_module, comp.module), site_module);// site root if site_module exists
 				delete comp.module;
+				
 				comp.app = this;
 				
-				this[alias] = is_callable(m) ? new m(comp) : m;
+				this[alias] = is_callable(this_module) ? new this_module(comp) : this_module;
 				
 				__server.msg('--"'+alias+'" component loaded');
 			}
@@ -48,6 +74,13 @@ App.prototype = {
 		}
 		
 		__server.line();
+	},
+	
+	checkSiteCompModule: function(alias){
+		return this.site_config && this.site_config.components && this.site_config.components[alias] && this.site_config.components[alias].module;
+	},
+	checkSiteCompDir: function(site_module, comp_module){
+		return site_module ? this.site_config.COMPONENTS_DIR + site_module : this.COMPONENTS_DIR + comp_module;
 	},
 	
 	// returns the routing function at the index of the site
@@ -67,11 +100,6 @@ App.prototype = {
 		};
 	},
 	
-	getPathFromAlias: function(index, name){
-		var path_alias = (this.path_aliases[index]+'_dir').toUpperCase();
-		return this[path_alias] + name;
-	},
-	
 	run: function(params, output){
 		this.vm.setOutput(output);
 		
@@ -82,16 +110,14 @@ App.prototype = {
 			name = params[type];
 			if (!name) continue;
 			
-			object = this[type];
-			var path = this.getPathFromAlias(i, name);
-			
-			if (object && object.name === name){
-				__server.msg('run '+type+' "'+name+'"');
-				object.run(params);
-			}
-			else this.tryComponent(name, type, path);
+			else this.tryComponent(name, type, this.getPathFromAlias(i, name));
 			return;
 		}
+	},
+	
+	getPathFromAlias: function(index, name){
+		var path_alias = (this.path_aliases[index]+'_dir').toUpperCase();
+		return this[path_alias] + name;
 	},
 	
 	tryComponent: function(name, type, path){
@@ -102,7 +128,8 @@ App.prototype = {
 			}
 			else{
 				__server.lmsg('create '+type+' "'+name+'"');
-				this[type] = new require(path)(this);
+				this[type] = new this.require(path, true)(this);// all this.types must lay in the site folders
+				this[type].run();
 			}
 		}
 		catch(e){
@@ -119,11 +146,12 @@ App.prototype = {
 	},
 	
 	render: function(view, params){
-		this.vm.create(this.getView(view), params);
+		this.vm.render(view, params);
 	}
 };
 
 module.exports = function(__config){
 	config = __config;
+	setPaths = require(config.ROOT_DIR + 'set_paths');
 	return App;
 };

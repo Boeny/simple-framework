@@ -7,8 +7,14 @@ module.exports = {
 	
 	components: {// allowed from the app
 		vm: {
+			// Interface:
+			// void end(output: string)
+			// void setOutput(response: object)
+			// void render(view: string, params: object)
 			module: 'view_model',
 			lang: 'ru',
+			default_views_dir: 'VIEWS_DIR',
+			layouts_dir: 'LAYOUT_DIR',
 			html_pattern: /<--(.*)-->/g,
 			html_part: /<--(.*)-->/
 		},
