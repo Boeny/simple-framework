@@ -7,20 +7,23 @@ var App = function(site_config, site_root){
 	obj_copy(this, config);
 	
 	// this.config is object with params and components
-	this.config = this.__req(this.CONFIG_MAIN);
+	this.config = this._require(this.CONFIG_MAIN);
 	
 	// if site_config contains CONFIG_MAIN, it'll be available in this.site_config object
 	this.mergeSiteConfig(setPaths(site_config, site_root));
 	
 	// create components, overwritten by site components
 	this.setComponents();
+	
+	this.path_aliases = this.types.map((t) => {
+		return t == 'file' ? 'root' : t+'s';
+	});
 };
 
 App.prototype = {
-	types: ['file','module','controller','action'],
-	path_aliases: ['root','modules','controllers','actions'],
+	types: ['file','module','controller','action','view'],
 	
-	__req: function(path, site){
+	_require: function(path, site){
 		return require((site ? this.SITE_ROOT_DIR : this.ROOT_DIR) + path);
 	},
 	
@@ -36,7 +39,7 @@ App.prototype = {
 		if (__site_config.CONFIG_MAIN)
 		{
 			// site's params and components
-			this.site_config = this.__req(__site_config.CONFIG_MAIN, true);// site root
+			this.site_config = this._require(__site_config.CONFIG_MAIN, true);// site root
 			
 			// overwrite own params and components
 			this.config = obj_deep_copy(this.config, this.site_config);
@@ -59,7 +62,7 @@ App.prototype = {
 			if (comp.module)
 			{
 				site_module = this.checkSiteCompModule(alias);
-				this_module = this.__req(this.checkSiteCompDir(site_module, comp.module), site_module);// site root if site_module exists
+				this_module = this._require(this.checkSiteCompDir(site_module, comp.module), site_module);// site root if site_module exists
 				delete comp.module;
 				
 				comp.app = this;
@@ -128,7 +131,7 @@ App.prototype = {
 			}
 			else{
 				__server.lmsg('create '+type+' "'+name+'"');
-				this[type] = new this.__req(path, true)(this);// all this.types must lay in the site folders
+				this[type] = new this._require(path, true)(this);// all this.types must lay in the site folders
 				this[type].run();
 			}
 		}

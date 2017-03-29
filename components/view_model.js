@@ -2,12 +2,12 @@ var h;
 
 module.exports = function(params){
 	obj_copy(this, params);
-	h = this.app.__req(this.app.HTML);
+	h = this.app.__require(this.app.HTML);
 	
-	this.Vue = this.app.__req(this.app.VUE);
+	this.Vue = this.app.__require(this.app.VUE);
 	__server.msg(' -vue loaded');
 	
-	this.renderer = this.app.__req(this.app.VUE_RENDERER).createRenderer();
+	this.renderer = this.app.__require(this.app.VUE_RENDERER).createRenderer();
 	__server.msg(' -vue-renderer loaded');
 };
 
